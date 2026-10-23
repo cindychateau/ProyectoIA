@@ -135,11 +135,11 @@ def parsear_respuesta_json(texto, claves_requeridas=None):
             raise ValueError("La respuesta no tiene la estructura esperada.")
     return datos
 
-
-try:
-    print(obtener_dato_de_prueba("Confirma en una frase corta que esta conexión funciona"))
-except (ValueError, RuntimeError) as error:
-    print("No se pudo completar la operación: ", error)
+if __name__ == "__main__": #Solamente ejecútalo si el archivo en el que estoy está siendo directamente ejecutado. NO LO EJECUTA EN IMPORTS
+    try:
+        print(obtener_dato_de_prueba("Confirma en una frase corta que esta conexión funciona"))
+    except (ValueError, RuntimeError) as error:
+        print("No se pudo completar la operación: ", error)
 
 '''
 Ejecute 4 veces la MISMA petición con 1 modelo
