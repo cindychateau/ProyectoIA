@@ -41,24 +41,44 @@ def armar_peticion(modelo, pregunta, system_instruction, response_schema=None): 
 #función envía la petición
 def enviar_peticion(url, body):
     try:
-        respuesta = requests.post(url, json=body, timeout=30)
-    except requests.exceptions.ConnectionError:
-        raise RuntimeError("No se pudo conectar con el servicio. Intenta de nuevo en unos momentos.")
-    except requests.exceptions.Timeout:
-        raise RuntimeError("Se agotó el tiempo. Intenta de nuevo en unos momentos.")
+        respuesta = requests.post(
+            url,
+            json=body,
+            timeout=30
+        )
+
+    except requests.exceptions.Timeout as error:
+        raise TimeoutError(
+            "Se agotó el tiempo de espera del proveedor."
+        ) from error
+
+    except requests.exceptions.ConnectionError as error:
+        raise RuntimeError(
+            "No se pudo conectar con el servicio."
+        ) from error
 
     if respuesta.status_code in(401, 403):
         raise ValueError("Credencial inválida o sin permiso. Revisa tu GEMINI_API_KEY")
     if respuesta.status_code >= 500:
         raise TimeoutError("El proveedor no pudo procesar la petición. Hay que esperar y reintentar")
     if respuesta.status_code == 429:
+        try:
+            detalle = respuesta.json()["error"]["message"]
+        except (ValueError, KeyError, TypeError):
+            detalle = "El proveedor informó un límite de uso."
+
+        if not isinstance(detalle, str) or not detalle.strip():
+            detalle = "El proveedor informó un límite de uso."
+
         segundos = respuesta.headers.get("Retry-After")
-        mensaje = f"Límite excedido. Reintentar en {segundos}s." if segundos else "Límite excedido."
-        raise TimeoutError(mensaje)
+
+        if segundos:
+            detalle += f" Reintentar después de {segundos} segundos."
+
+        raise TimeoutError(f"HTTP 429: {detalle}")
         
     if respuesta.status_code != 200:
         raise RuntimeError(f"Error en la petición. Status Code: {respuesta.status_code}")
-
     try:
         return respuesta.json()
     except requests.exceptions.JSONDecodeError:
@@ -163,4 +183,3 @@ OBJETIVO: Elijas el mejor modelo para tu proyecto
 
 Prompt sea algo relacionado con tu proyecto.
 '''
-

@@ -1,0 +1,10 @@
+{
+  "estimar_respuesta_y_tiempo": {
+    "exitos": 3,
+    "intentos": 3
+  },
+  "extraer_entidades": {
+    "exitos": 3,
+    "intentos": 3
+  }
+}

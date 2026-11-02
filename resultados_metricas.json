@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "consulta": "¿Qué es Python?",
+    "referencia": "Python es un lenguaje de programación interpretado.",
+    "respuesta": "Python es un lenguaje de programación interpretado, versátil y de alto nivel.",
+    "precision": 0.5833333333333334,
+    "cobertura": 1.0,
+    "f1": 0.7368421052631579
+  },
+  {
+    "id": 2,
+    "consulta": "¿En qué año fue la primera publicación de Python?",
+    "referencia": "La primera publicación de Python fue en 1991.",
+    "respuesta": "La primera publicación de Python fue realizada en el año 1991.",
+    "precision": 0.7272727272727273,
+    "cobertura": 1.0,
+    "f1": 0.8421052631578948
+  }
+]

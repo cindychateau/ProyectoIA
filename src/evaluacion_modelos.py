@@ -1,4 +1,4 @@
-import consumir_gemini
+from . import consumir_gemini
 import time
 
 def evaluar_modelo(nombre_modelo, pregunta, precio_entrada, precio_salida, repeticiones=4):
