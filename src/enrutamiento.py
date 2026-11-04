@@ -2,7 +2,14 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI #Modelo
 from langchain_core.prompts import PromptTemplate #Plantilla -> Prompt dinámico
 from langchain_core.output_parsers import StrOutputParser #Parsea la respuesta y la transforma en solo textos
-from langchain_core.runnables import (RunnableBranch, RunnablePassthrough) #Bifurcaciones/Branches/Ramificaciones
+from langchain_core.runnables import (RunnableBranch, RunnablePassthrough, RunnableLambda) #Bifurcaciones/Branches/Ramificaciones
+
+import logging #Generar un archivo de log con los errores que se presenten
+
+logging.basicConfig(
+    level=logging.WARNING
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -67,11 +74,28 @@ cadena_con_enrutamiento = (
     | bifurcacion
 )
 
-resultado = cadena_con_enrutamiento.invoke(
-    {"mensaje": "Deberían de tener más agentes disponibles."}
+#Fallback: cadena de respaldo. Captura las caídas de mi LLM (RateLimitError, 401, APIConnectionError, respuestas vacías)
+
+respuesta_generica = RunnableLambda(
+    #Todo: log
+    lambda x: (
+        "Gracias por tu mensaje. Un miembro de nuestro equipo te va a responder pronto."
+    )
 )
 
-print(resultado)
+cadena_robusta = cadena_con_enrutamiento.with_fallbacks([respuesta_generica])
+
+def procesar_mensaje_seguro(cadena, mensaje):
+    try:
+        return cadena.invoke({"mensaje": mensaje})
+    except Exception as error:
+        #Todo: log
+        return "No pudimos procesar tu mensaje en este momento. Intenta de nuevo más tarde"
+
+if __name__ == "__main__": #Solamente ejecuta el siguiente bloque de código si la ejecución es directa del archivo. NO EJECUTES si es import
+    mensaje = "Llevo varios días sin poder entrar a mi cuenta."
+    print(procesar_mensaje_seguro(cadena_robusta, mensaje))
+
 
 # Entrada inicial: {"mensaje": "Deberían de tener más agentes disponibles."}
 #                   │
