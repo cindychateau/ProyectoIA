@@ -104,7 +104,7 @@ prompt_agente = ChatPromptTemplate.from_messages([
     (
         "system", "Eres un asistente de logística que responde preguntas usando las herramientas disponibles."
     ),
-    #Todo: historial de chats
+    MessagesPlaceholder("chat_history"),
     ("human", "{entrada}"),
     MessagesPlaceholder("agent_scratchpad")
 ])
@@ -117,11 +117,55 @@ ejecutor_agente = AgentExecutor(
     verbose=True
 )
 
-#Guiño ;) Agente con MEMORIA - obtener_historial
+limpiar_salida = RunnableLambda(
+    lambda d: {**d, "output": d["output"][0]["text"] if isinstance(d.get("output"), list) else d.get("output")}
+)
+
+cadena_agente = ejecutor_agente | limpiar_salida
+
+#agente con memoria
+agente_con_memoria = RunnableWithMessageHistory(
+    cadena_agente,
+    obtener_historial,
+    input_messages_key="entrada",
+    history_messages_key="chat_history",
+    output_messages_key="output"
+)
 
 if __name__ == "__main__":
-    resultado = ejecutor_agente.invoke(
-        {"entrada": "¿Cuál es el estado del envío AR12345, con su historial?"}
+    # resultado = ejecutor_agente.invoke(
+    #     {"entrada": "¿Cuál es el estado del envío AR12345, con su historial?"}
+    # )
+
+    #print("Respuesta: ", resultado["output"][0]["text"])
+    
+    config1 = {"configurable": {"session_id": "cliente_456"}}
+    resultado1 = agente_con_memoria.invoke(
+        {"entrada": "¿Cuál es el estado del envío AR12345, con su historial?"},
+        config1
     )
 
-    print("Respuesta: ", resultado["output"][0]["text"])
+    print("Turno 1: ", resultado1["output"])
+
+    resultado2 = agente_con_memoria.invoke(
+        {"entrada": "¿Y ese mismo envío ya fue entregado?"},
+        config1
+    )
+
+    print("Turno 2: ", resultado2["output"])
+
+    config2 = {"configurable": {"session_id": "cliente_567"}}
+    resultado3 = agente_con_memoria.invoke(
+        {"entrada": "¿Cuánto cuesta enviar un paquete de 3kg a 300km"},
+        config2
+    )
+
+    print("Turno 3:", resultado3['output'])
+
+    resultado4 = agente_con_memoria.invoke(
+        {"entrada": "¿Y cuánto costaría con el doble de peso?"},
+        config2
+    )
+
+    print("Turno 4:", resultado4['output'])
+
