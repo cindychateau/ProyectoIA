@@ -25,17 +25,17 @@ modelo = ChatGoogleGenerativeAI(model="gemini-3.6-flash")
 #=== Auditoría/Human in the Loop ===
 registro_aprobaciones = []
 
-def esperar_aprobacion(mensaje: str, tiempo_limite_segundos: int = 300) -> bool:
+def esperar_aprobacion(mensaje: str, tiempo_limite_segundos: int = 15) -> bool:
     cola_respuesta = queue.Queue()
 
     def pedir_entrada():
         try:
             texto = input(mensaje)
-            cola_respuesta.put(texto.strip.lower())
+            cola_respuesta.put(texto.strip().lower())
         except(EOFError, KeyboardInterrupt):
             cola_respuesta.put("")
     
-    hilo = threading.Thread(target=pedir_entrada)
+    hilo = threading.Thread(target=pedir_entrada, daemon=True)
     hilo.start()
 
     try:
@@ -44,6 +44,14 @@ def esperar_aprobacion(mensaje: str, tiempo_limite_segundos: int = 300) -> bool:
     except queue.Empty:
         print("Tiempo de espera agotado. Solicitud denegada por timeout")
         return False
+
+def registrar_aprobacion(herramienta: str, argumentos: dict, aprobado: bool) -> None:
+    registro_aprobaciones.append({
+        "herramienta": herramienta,
+        "argumentos": argumentos,
+        "aprobado": aprobado,
+        "fecha_hora": datetime.now().isoformat() #2026-11-10T15:56:10
+    })
 
 
 #=== Esquemas de Validación ===
@@ -110,8 +118,31 @@ def calcular_costo_envio(peso_kg: float, distancia_km: float) -> str:
     costo = 500 + (peso_kg * 120) + (distancia_km * 3)
     return f"El costo estimado es de ${costo:.2f}"
 
+@tool
+def generar_reembolso(numero_pedido: str, monto: float) -> str:
+    """
+    Generar un reembolso económico para un pedido. Acción irreversible: requiere aprobación humana antes de ejecutarse.
+    """
+    mensaje = f"[SUPERVISIÓN HUMARA REQUERIDA] El usuario solicita reembolsar ${monto} para el pedido {numero_pedido}. ¿Desea aprobar? (s/n): "
+
+    #Congelar el proceso, hasta que el supervisor de el visto bueno
+    aprobado = esperar_aprobacion(mensaje, tiempo_limite_segundos=15)
+
+    #Registrar en la lista si se aprobó o rechazó el reembolso
+    registrar_aprobacion(
+        herramienta="generar_reembolso",
+        argumentos={"numero_pedido": numero_pedido, "monto": monto},
+        aprobado=aprobado
+    )
+
+    if not aprobado:
+        return "Reembolso no aprobado por el supervisor o cancelado por timeout"
+    
+    #Acciones para regresar el dinero (Ej: llamada a la pasarela de pago)
+    return f"Reembolso de {monto} fue generado con éxito para el pedido {numero_pedido}"
+
 #Listado de herramientas
-herramientas = [consultar_estado_envio_detallado, calcular_costo_envio]
+herramientas = [consultar_estado_envio_detallado, calcular_costo_envio, generar_reembolso]
 
 #=== Gestión de historial en memoria ===
 historiales = {}
@@ -169,33 +200,48 @@ if __name__ == "__main__":
 
     #print("Respuesta: ", resultado["output"][0]["text"])
     
-    config1 = {"configurable": {"session_id": "cliente_456"}}
-    resultado1 = agente_con_memoria.invoke(
-        {"entrada": "¿Cuál es el estado del envío AR12345, con su historial?"},
-        config1
+    # config1 = {"configurable": {"session_id": "cliente_456"}}
+    # resultado1 = agente_con_memoria.invoke(
+    #     {"entrada": "¿Cuál es el estado del envío AR12345, con su historial?"},
+    #     config1
+    # )
+
+    # print("Turno 1: ", resultado1["output"])
+
+    # resultado2 = agente_con_memoria.invoke(
+    #     {"entrada": "¿Y ese mismo envío ya fue entregado?"},
+    #     config1
+    # )
+
+    # print("Turno 2: ", resultado2["output"])
+
+    # config2 = {"configurable": {"session_id": "cliente_567"}}
+    # resultado3 = agente_con_memoria.invoke(
+    #     {"entrada": "¿Cuánto cuesta enviar un paquete de 3kg a 300km"},
+    #     config2
+    # )
+
+    # print("Turno 3:", resultado3['output'])
+
+    # resultado4 = agente_con_memoria.invoke(
+    #     {"entrada": "¿Y cuánto costaría con el doble de peso?"},
+    #     config2
+    # )
+
+    # print("Turno 4:", resultado4['output'])
+
+    config_reembolso = {"configurable": {"session_id": "cliente_123"}}
+    resultado_reembolso = agente_con_memoria.invoke(
+        {"entrada": "Mi pedido PED123 llegó roto. Exijo un reembolso de mis 25000 pesos."},
+        config_reembolso
     )
 
-    print("Turno 1: ", resultado1["output"])
+    print("Resultado: ", resultado_reembolso)
 
-    resultado2 = agente_con_memoria.invoke(
-        {"entrada": "¿Y ese mismo envío ya fue entregado?"},
-        config1
-    )
+    print("Registros de reembolsos:")
+    for registro in registro_aprobaciones:
+        print(registro)
 
-    print("Turno 2: ", resultado2["output"])
 
-    config2 = {"configurable": {"session_id": "cliente_567"}}
-    resultado3 = agente_con_memoria.invoke(
-        {"entrada": "¿Cuánto cuesta enviar un paquete de 3kg a 300km"},
-        config2
-    )
 
-    print("Turno 3:", resultado3['output'])
-
-    resultado4 = agente_con_memoria.invoke(
-        {"entrada": "¿Y cuánto costaría con el doble de peso?"},
-        config2
-    )
-
-    print("Turno 4:", resultado4['output'])
 
