@@ -1,6 +1,5 @@
 #Herramientas Personalizadas
 #Intro a Memoria
-
 from dotenv import load_dotenv
 from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -14,10 +13,40 @@ from pydantic import BaseModel, Field, ValidationError
 from langchain_core.chat_history import InMemoryChatMessageHistory #Crear el historial en base a la sesión
 from langchain_core.runnables.history import RunnableWithMessageHistory #Encapsular mi agente para que implemente la memoria
 
-#Configuraciones e Inicializaciones
+import queue
+import threading
+import sys
+from datetime import datetime
+
+#=== Configuraciones e Inicializaciones===
 load_dotenv()
 modelo = ChatGoogleGenerativeAI(model="gemini-3.6-flash")
 
+#=== Auditoría/Human in the Loop ===
+registro_aprobaciones = []
+
+def esperar_aprobacion(mensaje: str, tiempo_limite_segundos: int = 300) -> bool:
+    cola_respuesta = queue.Queue()
+
+    def pedir_entrada():
+        try:
+            texto = input(mensaje)
+            cola_respuesta.put(texto.strip.lower())
+        except(EOFError, KeyboardInterrupt):
+            cola_respuesta.put("")
+    
+    hilo = threading.Thread(target=pedir_entrada)
+    hilo.start()
+
+    try:
+        respuesta = cola_respuesta.get(timeout=tiempo_limite_segundos)
+        return respuesta == "s"
+    except queue.Empty:
+        print("Tiempo de espera agotado. Solicitud denegada por timeout")
+        return False
+
+
+#=== Esquemas de Validación ===
 class ArgumentosConsultaEnvio(BaseModel): #class ClaseHija(ClasePadre):
     """
     Esquema para documentar y validar argumentos campo por campo ante el LLM.
@@ -30,7 +59,7 @@ class ArgumentosConsultaEnvio(BaseModel): #class ClaseHija(ClasePadre):
         description="Si es True, incluye en historial completo de los estados, no solo el actual."
     )
 
-#Base de Datos
+#=== Base de Datos ===
 ESTADOS = {
     "AR12345": {
         "actual": "En tránsito, entrega estimada de 2 días",
@@ -48,7 +77,7 @@ ESTADOS = {
     }
 }
 
-#Herramientas
+#=== Herramientas ===
 #@tool("nuevo_nombre")
 @tool(args_schema=ArgumentosConsultaEnvio) #LangChain transforma esta clase en un esquema JSON que se envía al LLM. El modelo lo lee textualmente
 def consultar_estado_envio_detallado(numero_seguimiento: str, incluir_historial: bool = False):
@@ -84,7 +113,7 @@ def calcular_costo_envio(peso_kg: float, distancia_km: float) -> str:
 #Listado de herramientas
 herramientas = [consultar_estado_envio_detallado, calcular_costo_envio]
 
-#Gestión de historial en memoria
+#=== Gestión de historial en memoria ===
 historiales = {}
 """
 historiales = {
@@ -99,7 +128,7 @@ def obtener_historial(session_id: str): #cliente_567
     return historiales[session_id]
 
 
-#Construcción del agente
+#=== Construcción del agente ===
 prompt_agente = ChatPromptTemplate.from_messages([
     (
         "system", "Eres un asistente de logística que responde preguntas usando las herramientas disponibles."
@@ -132,6 +161,7 @@ agente_con_memoria = RunnableWithMessageHistory(
     output_messages_key="output"
 )
 
+#=== Ejecución ===
 if __name__ == "__main__":
     # resultado = ejecutor_agente.invoke(
     #     {"entrada": "¿Cuál es el estado del envío AR12345, con su historial?"}
