@@ -24,7 +24,7 @@ print("*****")
 
 #Inicializando el vector store
 vector_store = Chroma(
-    collection_name="ejemplo_rag",
+    collection_name="ejemplo_rag", #Si yo no coloco una collection_name: langchain
     embedding_function=embedding,
     persist_directory="./chroma_db"
 )

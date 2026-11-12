@@ -11,7 +11,7 @@ texto = (
 
 #Chunking de tamaño fijo (CharacterTextSplitter)
 print("****CHUNK FIJO****")
-splitter_fijo = CharacterTextSplitter(separator="", chunk_size=110, chunk_overlap=0)
+splitter_fijo = CharacterTextSplitter(separator=".", chunk_size=110, chunk_overlap=0)
 chunks_fijo = splitter_fijo.split_text(texto)
 
 for i, chunk in enumerate(chunks_fijo):
@@ -21,7 +21,7 @@ for i, chunk in enumerate(chunks_fijo):
 print("****CHUNK RECURSIVO****")
 
 #Chunking recursivo (RecursiveCharacterTextSplitter)
-splitter_recursivo = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=20)
+splitter_recursivo = RecursiveCharacterTextSplitter(chunk_size=110, chunk_overlap=20) #overlap 10-20%
 chunks_recursivo = splitter_recursivo.split_text(texto)
 
 for i, chunk in enumerate(chunks_recursivo):
