@@ -96,41 +96,72 @@ def agregar_documentos(vectorstore, nuevos_textos, prefijo_id, chunk_size=200, c
     except Exception as error:
         print("Error al agregrar nuevos documentos: ", error)
 
+"""
+Realiza la búsqueda semántica (por significado, NO POR PALABRA EXACTA) en el vector store.
+Devuelve una lista con los resultados semejantes
+"""
+def buscar_similares(vectorstore, pregunta, k=3):
+    #El modelo (Gemini) se encarga únicamente de hacer la traducción de la pregunta a vectores numéricos (gasta tokens)
+    #Chroma se encarga de regresarme la lista con los chunks más parecidos
+    #Chroma mide la distancia Euclidiana (L2). Entre más bajo sea el número, más cercano es el significado.
+    resultados = vectorstore.similarity_search_with_score( #with_score regresa también la distancia euclidiana
+        query=pregunta, #Gastamos tokens en traducir la pregunta a vectores numéricos
+        k=k #La cantidad de chunks que quiero que regrese
+    )
+
+    #resultados = [ {"page_content": "CONTENIDO DEL CHUNK", "metadata": {"fuente": "documento.pdf"}}, {}, {} ]
+
+    #iterar para imprimir todos los resultados
+    for i, (doc, score)in enumerate(resultados, start=1):
+        print(f"[Resultado {i}] Distancia (score): {score:.4f}")
+        print(f"Contenido: {doc.page_content}")
+        if doc.metadata:
+            print(f"Metadata: {doc.metadata}")
+
+    return resultados
+
+
 if __name__ == "__main__":
     #Constante
     CARPETA_DB = "vectorstore_ejemplo"
 
-    corpus = [
-        "El cliente reintenta hasta 3 veces ante un TimeoutError, con espera creciente.",
-        "El costo de cada llamada se calcula a partir de totalTokenCount.",
-        "Las pruebas unitarias del cliente usan mocks y corren en menos de un segundo.",
-    ]
+    # corpus = [
+    #     "El cliente reintenta hasta 3 veces ante un TimeoutError, con espera creciente.",
+    #     "El costo de cada llamada se calcula a partir de totalTokenCount.",
+    #     "Las pruebas unitarias del cliente usan mocks y corren en menos de un segundo.",
+    # ]
 
-    #indexar_corpus(corpus, CARPETA_DB) #Almacenar el texto
-    #indexar_corpus(corpus=corpus, persist_directory=CARPETA_DB, chunk_size=250, chunk_overlap=35)
+    # #indexar_corpus(corpus, CARPETA_DB) #Almacenar el texto
+    # #indexar_corpus(corpus=corpus, persist_directory=CARPETA_DB, chunk_size=250, chunk_overlap=35)
 
-    vs = cargar_vectorstore(CARPETA_DB) #Cargar la carpeta para poder consultarla/actualizarla más adelante
-    print("Chunks indexados: ", vs._collection.count()) #Imprime los chunks indexados
+    # vs = cargar_vectorstore(CARPETA_DB) #Cargar la carpeta para poder consultarla/actualizarla más adelante
+    # print("Chunks indexados: ", vs._collection.count()) #Imprime los chunks indexados
 
-    datos = vs.get()
-    print("IDs almacenados: ", datos["ids"])
-    print("Chunks almacenados: ", datos["documents"])
+    # datos = vs.get()
+    # print("IDs almacenados: ", datos["ids"])
+    # print("Chunks almacenados: ", datos["documents"])
 
-    #eliminar_por_ids(["579517b3-b962-4d38-aaae-def944b4e486"])
+    # #eliminar_por_ids(["579517b3-b962-4d38-aaae-def944b4e486"])
 
-    nueva_politica = ["Los envíos nacionales tardan entre 5 y 10 días hábiles"]
-    #agregar_documentos(vs, nueva_politica, "doc_nuevo", 150, 20)
-    agregar_documentos(
-        vectorstore=vs, 
-        nuevos_textos=nueva_politica, 
-        prefijo_id="doc_nuevo", 
-        chunk_size=150, 
-        chunk_overlap=20
-    )
+    # nueva_politica = ["Los envíos nacionales tardan entre 5 y 10 días hábiles"]
+    # #agregar_documentos(vs, nueva_politica, "doc_nuevo", 150, 20)
+    # agregar_documentos(
+    #     vectorstore=vs, 
+    #     nuevos_textos=nueva_politica, 
+    #     prefijo_id="doc_nuevo", 
+    #     chunk_size=150, 
+    #     chunk_overlap=20
+    # )
 
-    datos = vs.get()
-    print("IDs almacenados: ", datos["ids"])
-    print("Chunks almacenados: ", datos["documents"])
+    # datos = vs.get()
+    # print("IDs almacenados: ", datos["ids"])
+    # print("Chunks almacenados: ", datos["documents"])
+
+    vs = cargar_vectorstore(CARPETA_DB)
+    pregunta = "¿Qué hace el sistema cuando hay un fallo de red o tiempo de espera?"
+    
+    chunks_recuperados = buscar_similares(vs, pregunta, k=2)
+    
 
 
 
