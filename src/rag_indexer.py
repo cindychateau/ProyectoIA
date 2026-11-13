@@ -4,6 +4,34 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings #embedding de Ge
 from langchain_chroma import Chroma #Chroma = vector store
 
 load_dotenv()
+"""
+Auditar localmente que no haya chunks vacíos ni duplicados antes de gastar tokens en embeddings
+"""
+def verificar_integridad(chunks, corpus_original):
+    #Recorrer todos los chunks con su indice (i), quitamos espacios/saltos de línea
+    #guardo lista de posiciones de cualquier fragmento que haya quedado en blanco
+    vacios = [i for i, c in enumerate(chunks) if not c.page_content.strip()]
+
+    #Extraigo el texto plano de cada objeto, lista
+    textos = [c.page_content for c in chunks]
+
+    #lista1 = ["manzana", "pera", "manzana", "uvas"]
+    #set1 = ["manzana", "pera", "uvas"]
+
+    #Set/Conjunto es una lista de valores únicos
+    #Convierto la lista de textos en un set (para eliminar repetidos automáticamente), y si la longitud es distinta a la original significa que tenemos chunks iguales
+    hay_duplicados = len(textos) != len(set(textos))
+
+    if vacios:
+        raise ValueError(f"Se detectaron chunks vacíos en los índices: {vacios}")
+    if hay_duplicados:
+        print("Advertencia: Se detectaron chunks duplicados en el corpus.")
+
+    #Sumar el otal de caracteres de todos los chunks generados vs. el total de caracteres del corpus original
+    total_chars_chunks = sum(len(c.page_content) for c in chunks)
+    total_chars_corpus = sum(len(d) for d in corpus_original)
+
+    print(f"Integridad OK | Chunks: {len(chunks)} | Caracteres (corpus/chunks): {total_chars_corpus}/{total_chars_chunks}")
 
 """
 Recibir un corpus/texto dividirlo, calcular el embedding, y guardar el corpus en mi vector store
@@ -20,6 +48,8 @@ def indexar_corpus(corpus, persist_directory, chunk_size=200, chunk_overlap=30):
     chunks = splitter.create_documents(corpus) #create_documents: me permite agregar metadatos
 
     #Todo: generar ids y mandarlos
+
+    verificar_integridad(chunks, corpus)
 
     #Embedding
     embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
@@ -57,6 +87,8 @@ def agregar_documentos(vectorstore, nuevos_textos, prefijo_id, chunk_size=200, c
     #for i in range(len(nuevo_chunks)):
     #   ids_nuevos.append(f"{prefijo_id}_{i}"")
 
+    verificar_integridad(nuevo_chunks, nuevos_textos)
+
     try:
         vectorstore.add_documents(ids=ids_nuevos, documents=nuevo_chunks)
         #vectorstore.add_documents(nuevo_chunks, ids_nuevos)
@@ -75,7 +107,7 @@ if __name__ == "__main__":
     ]
 
     #indexar_corpus(corpus, CARPETA_DB) #Almacenar el texto
-    #indexar_corpues(corpus=corpus, persist_directory=CARPETA_DB, chunk_size=250, chunk_overlap=35)
+    #indexar_corpus(corpus=corpus, persist_directory=CARPETA_DB, chunk_size=250, chunk_overlap=35)
 
     vs = cargar_vectorstore(CARPETA_DB) #Cargar la carpeta para poder consultarla/actualizarla más adelante
     print("Chunks indexados: ", vs._collection.count()) #Imprime los chunks indexados
@@ -86,7 +118,7 @@ if __name__ == "__main__":
 
     #eliminar_por_ids(["579517b3-b962-4d38-aaae-def944b4e486"])
 
-    nueva_politica = ["Los envios internacionales tienen un tiempo estimado de entrega de 15 a 20 dias habiles."]
+    nueva_politica = ["Los envíos nacionales tardan entre 5 y 10 días hábiles"]
     #agregar_documentos(vs, nueva_politica, "doc_nuevo", 150, 20)
     agregar_documentos(
         vectorstore=vs, 
