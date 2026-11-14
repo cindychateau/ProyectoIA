@@ -2,6 +2,7 @@ from dotenv import load_dotenv #importa variables de entorno
 from langchain_text_splitters import RecursiveCharacterTextSplitter #función para dividir (chunking)
 from langchain_google_genai import GoogleGenerativeAIEmbeddings #embedding de Gemini
 from langchain_chroma import Chroma #Chroma = vector store
+from langchain_core.documents import Document
 
 load_dotenv()
 """
@@ -36,7 +37,7 @@ def verificar_integridad(chunks, corpus_original):
 """
 Recibir un corpus/texto dividirlo, calcular el embedding, y guardar el corpus en mi vector store
 """
-def indexar_corpus(corpus, persist_directory, chunk_size=200, chunk_overlap=30):
+def indexar_corpus(corpus, persist_directory, chunk_size=200, chunk_overlap=30, es_documento=False):
     #Dividir en fragmentos más pequeños corpus/texto
     splitter = RecursiveCharacterTextSplitter( #Configuración para la división
         chunk_size=chunk_size,
@@ -45,11 +46,14 @@ def indexar_corpus(corpus, persist_directory, chunk_size=200, chunk_overlap=30):
 
     #División
     #chunks = splitter.create_documents(texts=corpus, metadatas=[{"origen": "manual.pdf", "pagina": 2}])
-    chunks = splitter.create_documents(corpus) #create_documents: me permite agregar metadatos
+    if not es_documento:
+        chunks = splitter.create_documents(corpus) #create_documents: me permite agregar metadatos
+    else:
+        chunks = splitter.split_documents(corpus)
 
     #Todo: generar ids y mandarlos
 
-    verificar_integridad(chunks, corpus)
+    #verificar_integridad(chunks, corpus)
 
     #Embedding
     embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
@@ -120,6 +124,35 @@ def buscar_similares(vectorstore, pregunta, k=3):
 
     return resultados
 
+def formatear_contexto(chunks_recuperados):
+    lineas = []
+    citas = {}
+
+    """
+    chunks_recuperados = [
+
+        {
+            "page_content": "El usuario puede iniciar 3 veces sesión",
+            "metadata": {
+                "fuente": "manual_de_usuario.txt",
+                "fecha": "2026-11-13"
+            }
+        },
+        {},
+        {}
+    
+    ]
+    """
+   
+    for i, doc in enumerate(chunks_recuperados, start=1):
+        #Si el chunk no se indexó con metadata["fuente"], devolverá "desconocida"
+        fuente = doc.metadata.get("fuente", "desconocida") #"manual_de_usuario.txt"
+        lineas.append(f"[{i}] {doc.page_content}") # [1] "El usuario puede iniciar 3 veces sesión"
+        citas[i] = fuente #{1: "manual_de_usuario.txt"}
+
+    contexto = "\n\n".join(lineas)
+    return contexto, citas
+
 
 if __name__ == "__main__":
     #Constante
@@ -158,12 +191,28 @@ if __name__ == "__main__":
     # print("Chunks almacenados: ", datos["documents"])
 
     vs = cargar_vectorstore(CARPETA_DB)
-    pregunta = "¿Qué hace el sistema cuando hay un fallo de red o tiempo de espera?"
+    # pregunta = "¿Qué hace el sistema cuando hay un fallo de red o tiempo de espera?"
     
-    chunks_recuperados = buscar_similares(vs, pregunta, k=2)
-    
+    # chunks_recuperados = buscar_similares(vs, pregunta, k=2)
 
+    # #k = Cantidad de chunks que quiero que regrese
+    # retrievier = vs.as_retriever(search_kwargs={"k": 2}) #Adapta lo que tenía en Chroma para poder utilizarlo en LangChain
+    # #Ventaja principal: Cadena o Agente | 
+    # resultados = retrievier.invoke("¿Cuánto tarda un envío en el mismo país?")
+    # for r in resultados:
+    #     print(r.page_content)
 
+    #Instalación adicional si queremos leer pdf, docs, etc
+    with open("manual_de_usuario.txt", "r", encoding="utf-8") as f: #r: read, a: append, w: write
+        contenido = f.read()
+
+    documentos = [Document(page_content=contenido, metadata={"fuente": "manual_de_usuario.txt", "fecha": "2026-11-13"})]
+
+    #indexar_corpus(documentos, CARPETA_DB, es_documento=True) #comentado para que no vuelvan a ingresar el manual de usuario en su vs
+
+    datos = vs.get()
+    print("IDs almacenados: ", datos["ids"])
+    print("Chunks almacenados: ", datos["documents"])
 
 
 

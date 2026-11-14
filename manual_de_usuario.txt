@@ -1,0 +1,26 @@
+# Manual de Integración y Operación - API de Pagos y Notificaciones v2.4
+
+## 1. Política de Reintentos y Conexión de Red
+El cliente HTTP reintenta las solicitudes de manera automática ante la presencia de un TimeoutError o fallos temporales de conexión (códigos de estado 502, 503 y 504). El sistema aplica una política de espera exponencial con un máximo de 3 intentos:
+- Primer reintento: espera de 2 segundos.
+- Segundo reintento: espera de 4 segundos.
+- Tercer reintento: espera de 8 segundos.
+Si tras el tercer intento la conexión no se restablece, el cliente arroja una excepción NetworkConnectionError y registra el incidente en el log de auditoría.
+
+## 2. Errores de Autenticación y Autorización
+Los errores asociados a credenciales inválidas (códigos HTTP 401 Unauthorized y 403 Forbidden) no activan ningún mecanismo de reintento automático. La ejecución finaliza de inmediato arrojando un AuthenticationError. Para resolver este problema:
+- Confirme que el parámetro API_KEY esté correctamente declarado en el entorno de ejecución.
+- Verifique que el token de acceso no haya expirado (vigencia estándar de 24 horas).
+- Revise que la cuenta emisora posea permisos de escritura sobre la colección solicitada.
+
+## 3. Límites de Tasa (Rate Limiting) y Cuotas
+El entorno estándar permite hasta un máximo de 60 peticiones por minuto por cada clave de API individual. Cuando se excede este volumen:
+- El servidor responderá con el código HTTP 429 Too Many Requests.
+- La cabecera 'Retry-After' indicará el número de segundos que el cliente debe suspender el envío de tráfico antes de retomar la operación.
+- El cliente debe pausar su hilo de ejecución durante dicho intervalo para evitar el bloqueo temporal de la dirección IP.
+
+## 4. Control de Costos y Facturación de Sesión
+El consumo computacional de cada llamada se contabiliza en una variable de sesión en memoria durante la ejecución activa del proceso.
+- Las consultas de solo lectura consumen 1 unidad de crédito por cada bloque de 100 registros recuperados.
+- Las operaciones de escritura y actualización consumen 5 unidades de crédito por transacción confirmada.
+Al cerrar la sesión del cliente mediante el método client.close(), se emite un reporte consolidado con el total de unidades consumidas y se sincroniza con el módulo de facturación central.
