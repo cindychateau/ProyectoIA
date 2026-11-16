@@ -153,6 +153,28 @@ def formatear_contexto(chunks_recuperados):
     contexto = "\n\n".join(lineas)
     return contexto, citas
 
+#¿Cuál es el ID de cada chunk?
+def inspeccionar_chunks(vectorstore):
+    datos = vectorstore.get()
+    #datos["ids"], datos["documents"], datos["metadatas"]
+    total = len(datos["ids"])
+    print(f"-- INVENTARIO DE CHUNKS EN CHROMA (Total: {total}) --")
+
+    """
+    [
+        (579517b3-b962-4d38-aaae-def944b4e486, El cliente reintenta hasta 3 veces ante un TimeoutError, con espera creciente...., None),
+        (233bfcaa-0650-433e-803c-e1d83235259a, El costo de cada llamada se calcula a partir de totalTokenCount...., None),
+    ]
+
+    chunk_id = 579517b3-b962-4d38-aaae-def944b4e486
+    texto = El cliente reintenta hasta 3 veces ante un TimeoutError, con espera creciente....
+    meta = None
+    """
+    for i, (chunk_id, texto, meta) in enumerate(zip(datos["ids"], datos["documents"], datos["metadatas"]), start=1):
+        print(f"[{i}] ID: {chunk_id}")
+        print(f"Fuente/Meta: {meta}")
+        resumen = texto.replace("\n", " ")[:100] #Quita los saltos de línea y obten solo los primeros 100 caracteres
+        print(f"Contenido: {resumen}...")
 
 if __name__ == "__main__":
     #Constante
@@ -214,5 +236,16 @@ if __name__ == "__main__":
     print("IDs almacenados: ", datos["ids"])
     print("Chunks almacenados: ", datos["documents"])
 
+    retriever = vs.as_retriever(search_kwargs={"k": 2})
+    chunks_recuperados = retriever.invoke("¿Cuantos reintentos tengo ante un error?")
 
+    contexto, citas = formatear_contexto(chunks_recuperados)
+    print("--CONTEXTO FORMATEADO--")
+    print(contexto)
+    print("--DICCIONARIO DE CITAS--")
+    print(citas)
 
+    inspeccionar_chunks(vs)
+
+    #consulta: "Cuáles son los errores de credenciales inválidas?"
+    #ids_relevantes = {"a4bc644f-ffa9-4219-94b2-5fd7cff518be"}
