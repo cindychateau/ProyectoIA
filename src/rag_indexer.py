@@ -173,7 +173,7 @@ def inspeccionar_chunks(vectorstore):
     for i, (chunk_id, texto, meta) in enumerate(zip(datos["ids"], datos["documents"], datos["metadatas"]), start=1):
         print(f"[{i}] ID: {chunk_id}")
         print(f"Fuente/Meta: {meta}")
-        resumen = texto.replace("\n", " ")[:100] #Quita los saltos de línea y obten solo los primeros 100 caracteres
+        resumen = texto.replace("\n", " ") #Quita los saltos de línea y obten solo los primeros 100 caracteres
         print(f"Contenido: {resumen}...")
 
 if __name__ == "__main__":
@@ -237,13 +237,13 @@ if __name__ == "__main__":
     print("Chunks almacenados: ", datos["documents"])
 
     retriever = vs.as_retriever(search_kwargs={"k": 2})
-    chunks_recuperados = retriever.invoke("¿Cuantos reintentos tengo ante un error?")
+    # chunks_recuperados = retriever.invoke("¿Cuantos reintentos tengo ante un error?")
 
-    contexto, citas = formatear_contexto(chunks_recuperados)
-    print("--CONTEXTO FORMATEADO--")
-    print(contexto)
-    print("--DICCIONARIO DE CITAS--")
-    print(citas)
+    # contexto, citas = formatear_contexto(chunks_recuperados)
+    # print("--CONTEXTO FORMATEADO--")
+    # print(contexto)
+    # print("--DICCIONARIO DE CITAS--")
+    # print(citas)
 
     inspeccionar_chunks(vs)
 

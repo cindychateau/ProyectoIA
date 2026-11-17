@@ -1,0 +1,7 @@
+Fecha: 2026-11-17
+Configuracion: k=3, chunk_size=200, chunk_overlap=30
+
+P=0.67 | R=0.67 | F1=0.67 | ¿Cuántos intentos hace el cliente ante un TimeoutError y cuánto espera entre cada uno?
+P=0.67 | R=0.67 | F1=0.67 | ¿Qué ocurre cuando hay un error 401 o 403 de credenciales inválidas y cómo se soluciona?
+P=0.67 | R=0.67 | F1=0.67 | ¿Cuál es el límite de peticiones por minuto y qué pasa si se excede?
+P=0.67 | R=1.00 | F1=0.80 | ¿Cuántas unidades de crédito consumen las consultas de lectura y las de escritura?
