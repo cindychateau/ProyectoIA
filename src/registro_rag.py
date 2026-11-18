@@ -113,6 +113,15 @@ def registrar_consulta(vectorstore, pregunta: str, k: int = 3) -> dict:
 
     return registro
 
+def guardar_registro_jsonl(registro: dict, ruta_archivo: str = "registro_latencia_costo_rag.jsonl"):
+    """
+    Guarda cada corrida/registro generado y lo agrega a un json
+    """
+    with open(ruta_archivo, "a", encoding="utf-8") as f: #agrego al final del archivo
+        f.write(json.dumps(registro, ensure_ascii=False)+"\n")
+    
+    print(f"Registro guardado en {ruta_archivo}")
+
 if __name__ == "__main__":
     CARPETA_DB = "vectorstore_ejemplo"
     K = 3
@@ -136,3 +145,19 @@ if __name__ == "__main__":
 
     registro = registrar_consulta(vs, pregunta, K)
     print(registro)
+
+    guardar_registro_jsonl(registro)
+
+    """
+    #Flujo normal:
+    #Etapa 1: Embed y la busqueda vectorial (Consulta a mi VS) - Acción Local
+    retriever = vectorstore.as_retriever(search_kwargs={"k": k})
+    chunks = retriever.invoke(pregunta) #busqueda vectorial con Chroma
+
+    #Etapa 2: Armado del prompt (agregando el contexto/chunks formateados) - Acción Local
+    contexto, citas = formatear_contexto(chunks)
+    prompt = PROMPT_TEMPLATE.format(contexto=contexto, pregunta=pregunta)
+
+    #Etapa 3: Generación de la respuesta con Gemini
+    respuesta = chat_model.invoke(prompt)
+    """
