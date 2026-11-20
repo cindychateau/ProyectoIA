@@ -57,6 +57,66 @@ def generar_huella(texto: str) -> str:
 
 
 
-#BaseCallbackHandler -> cuando la cadena comience, cuando retriever comience, cuando retr termine, cuando el modelo comience, cuando el modelo termine
+#FUNCIONAMIENTO: BaseCallbackHandler -> cuando la cadena comience, cuando retriever comience, cuando retr termine, cuando el  comience, cuando el modelo termine
+#Heredo de BaseCallbackHandler, ya tiene definidos mis métodos que detectan una acción/evento de Langchain y sobreescribimos esos eventos para registrar el log de lo que está sucediendo
+class HandlerDeTrazabilidad(BaseCallbackHandler):
+    #1.- Comienza mi cadena
+    def on_chain_start(self, serialized, inputs, *, run_id, parent_run_id=None, **kwargs):
+        if parent_run_id is None: #Es la cadena principal
+            logger.info(
+                "inicio_cadena",
+                extra={
+                    "extra_data": {
+                        "root_run_id": str(run_id)
+                    }
+                }
+            )
+    
+    #CICLO DE VIDA: retriever
+    #on_retriever_start: Se dispara ANTES de que el retriever haga la búsqueda vectorial
+    def on_retriever_start(self, serialized, query, *, run_id, parent_run_id=None, metadata=None, **kwargs):
+        #query: el texto exacto con el que se está haciendo la búsqueda semántica
+        #metadata: diccionario que pasamos en config
+        logger.info(
+            "retriever_start",
+            extra={
+                "extra_data": {
+                    "run_id": str(run_id),
+                    "parent_run_id": str(parent_run_id),
+                    "query_len": len(query),
+                    "query_hash": generar_huella(query),
+                    "meta_trace": (metadata or {}).get("trace_id")
+                }
+            }
+        )
+
+    #on_retriever_end: Se dispara INMEDIATAMENTE DESPUES de recibir los chunks
+    def on_retriever_end(self, documents, *, run_id, parent_run_id=None, **kwargs):
+        #documents: la lista de objetos Document que recuperamos de la base vectorial. CHUNKS
+        docs_huellas = [generar_huella(d.page_content) for d in documents] #Hashea todos los chunks que recibimos
+        logger.info(
+            "retriever_end",
+            extra={
+                "extra_data": {
+                    "n_documents": len(documents),
+                    "huellas_docs": docs_huellas
+                }
+            }
+        )
+    
+    #CICLO DE VIDA DE MODELO
+    #on_chat_model_start: dispara ANTES de enviar los mensajes (System + Human)
+    def on_chat_model_start(self, serialized, messages, *, run_id, parent_run_id=None, **kwargs):
+        #messages: lista de mensajes formateados que recibe el modelo
+        logger.info(
+            "llm_start",
+            extra={
+                "extra_data": {
+                    "run_id": str(run_id),
+                    "parent_run_id": str(parent_run_id),
+                    "n_prompts": len(messages)
+                }
+            }
+        )
 
 #Cadena: contexto (retriever + formateo_contexto) | prompt | chat_model | StrOutputParser
