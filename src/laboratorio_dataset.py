@@ -60,3 +60,57 @@ def validar_dataset(examples, claves_esperadas=("categoria", "accion_sugerida"))
 def chequear_balance(ejemplos_raw):
     categorias = Counter(salida["categoria"] for _, salida in ejemplos_raw)
     return categorias
+
+def esperar_a_que_termine(client: genai.Client, nombre_trabajo: str, intervalo_segundos: int = 30) -> types.TuningJob:
+    estados_finales = {
+        types.JobState.JOB_STATE_SUCCEEDED,
+        types.JobState.JOB_STATE_FAILED,
+        types.JobState.JOB_STATE_CANCELLED,
+        types.JobState.JOB_STATE_PARTIALLY_SUCCEEDED,
+    }
+    while True:
+        trabajo = client.tunings.get(name=nombre_trabajo)
+        print(f"Estado actual: {trabajo.state}")
+        if trabajo.state in estados_finales:
+            return trabajo
+        time.sleep(intervalo_segundos)
+
+if __name__ == "__main__":
+    #Validación del Dataset
+
+    #Chequeo de balance
+
+    client = genai.Client(
+        vertexai=True,
+        project="braided-course-515122-u5",
+        location="us-central-1"
+    )
+
+    #Este es el dataset con el que vamos a entrenar al modelo
+    dataset = types.CreateTuningDataset(gcs_uri="gs://bucket-ejemplo-otro/ejemplos_tuning.jsonl")
+
+    config = types.CreateTuningJobConfig(
+        tuning_mode=types.TuningMode.TUNING_MODE_PEFT_ADAPTER,
+        adapter_size=types.AdapterSize.ADAPTER_SIZE_FOUR,
+        epoch_count=5,
+        tuned_model_display_name="categorizacion-errores"
+    )
+
+    try:
+        print("¡Empezando el trabajo de Tuning con Google!")
+        trabajo = client.tunings.tune(
+            base_model="gemini-2.5-flash",
+            training_dataset=dataset,
+            config=config
+        )
+
+        print(f"Trabajo creado con éxito. ID {trabajo.name}")
+
+        resultado_final = esperar_a_que_termine(client, trabajo.name)
+        print("\n Proceso finalizado con estado:", resultado_final.state)
+
+        if resultado_final.state == types.JobState.JOB_STATE_SUCCEEDED:
+            print("Modelo listo para usar: ", resultado_final.tuned_model.model)
+
+    except Exception as error:
+        print("No se pudo completar el trabajo de tuning: ", error)
