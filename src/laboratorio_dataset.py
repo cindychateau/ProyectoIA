@@ -87,7 +87,7 @@ if __name__ == "__main__":
     )
 
     #Este es el dataset con el que vamos a entrenar al modelo
-    dataset = types.CreateTuningDataset(gcs_uri="gs://bucket-ejemplo-otro/ejemplos_tuning.jsonl")
+    dataset = types.TuningDataset(gcs_uri="gs://bucket-ejemplo-otro/ejemplos_tuning.jsonl")
 
     config = types.CreateTuningJobConfig(
         tuning_mode=types.TuningMode.TUNING_MODE_PEFT_ADAPTER,
