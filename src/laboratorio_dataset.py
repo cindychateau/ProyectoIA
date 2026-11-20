@@ -83,7 +83,7 @@ if __name__ == "__main__":
     client = genai.Client(
         vertexai=True,
         project="braided-course-515122-u5",
-        location="us-central-1"
+        location="us-central1"
     )
 
     #Este es el dataset con el que vamos a entrenar al modelo
