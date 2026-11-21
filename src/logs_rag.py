@@ -118,5 +118,64 @@ class HandlerDeTrazabilidad(BaseCallbackHandler):
                 }
             }
         )
+    
+    #on_llm_end: dispara cuando TERMINA el agente de generar la respuesta
+    def on_llm_end(self, response, *, run_id, parent_run_id=None, **kwargs):
+        #response: Respuesta/texto generado de mi API
+        texto_salida = response.generations[0][0].text #Navegar a la estructura interna para sacar el texto generado
+        logger.info(
+            "llm_end",
+            extra={
+                "extra_data": {
+                    "chars_respuesta": len(texto_salida),
+                    "respuesta_hash": generar_huella(texto_salida)
+                }
+            }
+        )
 
 #Cadena: contexto (retriever + formateo_contexto) | prompt | chat_model | StrOutputParser
+def ejecutar_consulta(vectorstore, pregunta: str, k: int=3):
+    token = trace_id_var.set(f"trace-{uuid.uuid4().hex[:8]}")
+    try:
+        retriever = vectorstore.as_retriever(search_kwargs={"k": k})
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "Eres un asistente de soporte. Cita la fuente de cada afirmacion con su numero entre corchetes, como [1]. Si el contexto no alcanza para responder, dilo explicitamente en vez de inventar"),
+            ("human", "Contexto: \n{contexto}\n\n Pregunta: {pregunta}")
+        ])
+        modelo = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite")
+        runnable_contexto = RunnableLambda(lambda chunks: formatear_contexto(chunks)[0])
+
+        """
+        1.- Toma la pregunta, busca en el vectorstore y pasa el resultado por formatear_contexto (resultado: contexto formateado)
+            1.1.- Paso la pregunta original INTACTA
+        2.- Inyecta al prompt (resultado: prompt ya con contexto y pregunta)
+        3.- Mando el prompt al modelo
+        4.- Parseo el texto
+        """
+        cadena = (
+            {
+                "contexto": retriever | runnable_contexto,
+                "pregunta": RunnablePassthrough()
+            }
+            | prompt
+            | modelo
+            | StrOutputParser()
+        )
+
+        handler = HandlerDeTrazabilidad() #Invoco a la cadena, PASANDOLE el handler. Detectar los eventos mientras se ejecuta la cadena
+        cadena.invoke(
+            pregunta,
+            config={
+                "callbacks": [handler],
+                "metadata": {"trace_id": trace_id_var.get()}
+            }
+        )
+    finally:
+        trace_id_var.reset(token) #BORRO el trace_id para futuras consultas
+
+
+if __name__ == "__main__":
+    CARPETA_DB = "vectorstore_ejemplo"
+    K = 3
+    vs = cargar_vectorstore(CARPETA_DB)
+    ejecutar_consulta(vs, "¿Cuántos intentos hace el cliente ante un TimeoutError y cuánto espera entre cada uno?", 3)
