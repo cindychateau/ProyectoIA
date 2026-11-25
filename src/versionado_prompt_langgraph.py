@@ -84,6 +84,17 @@ def desplegar(estado:Estado):
 def nuevo_thread_id(prefijo="despliegue"):
     return f"{prefijo}-{uuid.uuid4().hex[:8]}" #id 128bits
 
+#Comprobar que exista aprobación pte, reanudar el grafo
+def resolver(app, config, aprobar: bool):
+    #Generar este botón de Aprobar/Rechazar que envíe una petición HTTP (POST) a tu backend y que invoque esta función
+    snapshot = app.get_state(config) #Obtenemos el proceso en base al ID
+    if not snapshot.next:
+        raise ValueError("Este thread/proceso no tiene ninguna aprobación pendiente")
+    
+    #Reanude el flujo, estableciendo True o False y enviando el ID del thread
+    return app.invoke(Command(resume=aprobar), config=config) 
+    #Command(resume=True/False): reanudar al flujo
+
 if __name__ == "__main__":
     print("--- PARTE A: REGISTRO Y DIFF DE PROMPTS ---")
     registro = RegistroDePrompts()
@@ -128,6 +139,9 @@ if __name__ == "__main__":
     app = grafo.compile(checkpointer=InMemorySaver()) 
     #checkpointer: Esteblezco un punto de guardado para el momento en el que yo interrumpo el proceso. Guardo una "foto" del estado actual, guardar en Memoria la información del estado actual de mi proceso. InMemorySaver() = Guardando en Memoria RAM. Producción: Sqllite o Postgres, MySql. Genera una fila nueva con estado y el id (del proceso)
 
+    """
+    PROCESO 1: Camino de aprobación
+    """
     #Quiero ejecutar un flujo. Flujo debe de tener un id único
     config = {"configurable": {"thread_id": nuevo_thread_id()}} #Creando el número único (hilo) para la solicitud. Langgraph me EXIJE que sea el diccionario con esa misma estructura
     resultado = app.invoke({"version_nueva": v2["huella"], "aprobado": False}, config=config) #Hce que se ejecute el flujo, yo comienzo con el START
@@ -138,4 +152,19 @@ if __name__ == "__main__":
     print("siguiente nodo pendiente: ", snapshot.next) #punto_supervision
     print("detalle de interrupcion: ", snapshot.interrupts[0].value)
 
-    
+    print("\nreanudando con aprobación humana")
+    #Reanudando mi flujo, aprobando el cambio
+    resultado_aprobado = resolver(app, config, True) 
+    print("estado final:", resultado_aprobado)
+
+    """
+    PROCESO 2: Camino de rechazo
+    """
+    #RECHAZO
+    #NUEVO thread_id para un nuevo proceso
+    config2 = {"configurable": {"thread_id": nuevo_thread_id()}} 
+    app.invoke({"version_nueva": "v3-prueba", "aprobado": False}, config=config2)
+
+    print("\nreanudando con rechazo")
+    resultado_rechazado = resolver(app, config2, False)
+    print(resultado_rechazado)
